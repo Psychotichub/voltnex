@@ -1,0 +1,753 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Local development uses SQLite so `npm run dev` works without Docker.
+// Production should switch provider to postgresql and DATABASE_URL accordingly.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DIRECTOR
+  PROJECT_MANAGER
+  ENGINEER
+  ESTIMATOR
+  SITE_SUPERVISOR
+  ELECTRICIAN
+  ACCOUNTANT
+  VIEWER
+}
+
+enum ClientType {
+  RESIDENTIAL
+  COMMERCIAL
+  INDUSTRIAL
+  HOSPITAL
+  HOTEL
+  SCHOOL
+  GOVERNMENT
+  CONTRACTOR
+  DEVELOPER
+}
+
+enum ProjectStatus {
+  PLANNING
+  QUOTATION
+  AWARDED
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectWorkflow {
+  LEAD
+  SITE_SURVEY
+  ESTIMATION
+  BOQ
+  QUOTATION
+  CLIENT_APPROVAL
+  CONTRACT
+  PROJECT_PLANNING
+  PROCUREMENT
+  INSTALLATION
+  INSPECTION
+  TESTING
+  COMMISSIONING
+  HANDOVER
+  INVOICE
+  PAYMENT
+  WARRANTY
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  FOR_REVIEW
+  APPROVED
+  AS_BUILT
+  SUPERSEDED
+  PENDING
+  RECEIVED
+}
+
+enum PaymentKind {
+  CLIENT
+  SUPPLIER
+  LABOUR
+  OTHER
+}
+
+enum ExpenseCategory {
+  MATERIAL
+  LABOUR
+  TRANSPORT
+  FUEL
+  TOOLS
+  ACCOMMODATION
+  FOOD
+  OFFICE
+  EQUIPMENT
+  SUBCONTRACTOR
+  OTHER
+}
+
+enum InventoryMoveType {
+  OPENING
+  PURCHASE
+  ISSUE
+  RETURN
+  ADJUSTMENT
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         Role      @default(VIEWER)
+  isActive     Boolean   @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  managedProjects Project[]          @relation("ProjectManager")
+  memberships     ProjectMember[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  surveys         SiteSurvey[]
+  tests           TestingChecklist[] @relation("TestedBy")
+}
+
+model Company {
+  id               String   @id @default("default")
+  name             String
+  logoPath         String?
+  registrationNo   String?
+  pan              String?
+  vatNumber        String?
+  address          String?
+  district         String?
+  province         String?
+  phone            String?
+  email            String?
+  website          String?
+  bankName         String?
+  bankAccountNo    String?
+  bankBranch       String?
+  authorizedPerson String?
+  signaturePath    String?
+  vatRate          Decimal  @default(13)
+  currencyCode     String   @default("NPR")
+  currencySymbol   String   @default("Rs.")
+  seoKeywords      String   @default("Electrical Contractor Nepal, Electrical Engineering Nepal, Industrial Electrical Contractor Nepal, Electrical Installation Nepal")
+  quotationTerms   String?
+  invoiceTerms     String?
+  paymentTerms     String?
+  mapEmbedUrl      String?
+  whatsappNumber   String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model NumberSequence {
+  id        String @id
+  prefix    String
+  year      Int
+  lastValue Int    @default(0)
+}
+
+model Client {
+  id            String     @id @default(cuid())
+  name          String
+  company       String?
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  panVat        String?
+  type          ClientType @default(COMMERCIAL)
+  notes         String?
+  deletedAt     DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  projects   Project[]
+  quotations Quotation[]
+  invoices   Invoice[]
+  payments   Payment[]
+  surveys    SiteSurvey[]
+}
+
+model Project {
+  id                 String          @id @default(cuid())
+  code               String          @unique
+  name               String
+  clientId           String
+  client             Client          @relation(fields: [clientId], references: [id])
+  location           String?
+  projectType        ClientType      @default(COMMERCIAL)
+  startDate          DateTime?
+  expectedCompletion DateTime?
+  actualCompletion   DateTime?
+  contractValue      Decimal         @default(0)
+  estimatedCost      Decimal         @default(0)
+  actualCost         Decimal         @default(0)
+  estimatedProfit    Decimal         @default(0)
+  actualProfit       Decimal         @default(0)
+  managerId          String?
+  manager            User?           @relation("ProjectManager", fields: [managerId], references: [id])
+  status             ProjectStatus   @default(PLANNING)
+  workflow           ProjectWorkflow @default(LEAD)
+  notes              String?
+  deletedAt          DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  members          ProjectMember[]
+  boqs             Boq[]
+  quotations       Quotation[]
+  invoices         Invoice[]
+  payments         Payment[]
+  expenses         Expense[]
+  drawings         Drawing[]
+  methodStatements MethodStatement[]
+  checklists       TestingChecklist[]
+  documents        Document[]
+  surveys          SiteSurvey[]
+  purchaseOrders   PurchaseOrder[]
+  inventoryMoves   InventoryMove[]
+  costing          ProjectCosting?
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      String?
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, userId])
+}
+
+model ProjectCosting {
+  id               String  @id @default(cuid())
+  projectId        String  @unique
+  project          Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  estMaterial      Decimal @default(0)
+  estLabour        Decimal @default(0)
+  estEquipment     Decimal @default(0)
+  estTransport     Decimal @default(0)
+  estSubcontractor Decimal @default(0)
+  estOther         Decimal @default(0)
+  estOverhead      Decimal @default(0)
+  estContingency   Decimal @default(0)
+  actMaterial      Decimal @default(0)
+  actLabour        Decimal @default(0)
+  actEquipment     Decimal @default(0)
+  actTransport     Decimal @default(0)
+  actSubcontractor Decimal @default(0)
+  actOther         Decimal @default(0)
+}
+
+model MaterialCategory {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  materials Material[]
+}
+
+model Supplier {
+  id                String    @id @default(cuid())
+  name              String
+  company           String?
+  contactPerson     String?
+  phone             String?
+  email             String?
+  address           String?
+  panVat            String?
+  productCategories String?
+  paymentTerms      String?
+  creditLimit       Decimal   @default(0)
+  notes             String?
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  materials      Material[]
+  supplierMats   SupplierMaterial[]
+  purchaseOrders PurchaseOrder[]
+  payments       Payment[]
+}
+
+model Material {
+  id            String            @id @default(cuid())
+  code          String            @unique
+  name          String
+  categoryId    String?
+  category      MaterialCategory? @relation(fields: [categoryId], references: [id])
+  subcategory   String?
+  brand         String?
+  model         String?
+  specification String?
+  unit          String            @default("Nos")
+  purchasePrice Decimal           @default(0)
+  sellingPrice  Decimal           @default(0)
+  supplierId    String?
+  supplier      Supplier?         @relation(fields: [supplierId], references: [id])
+  vatRate       Decimal           @default(13)
+  minStock      Decimal           @default(0)
+  currentStock  Decimal           @default(0)
+  warranty      String?
+  datasheetPath String?
+  notes         String?
+  deletedAt     DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  prices         MaterialPrice[]
+  supplierLinks  SupplierMaterial[]
+  inventoryMoves InventoryMove[]
+  poItems        PurchaseOrderItem[]
+}
+
+model MaterialPrice {
+  id         String   @id @default(cuid())
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  price      Decimal
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model SupplierMaterial {
+  id         String   @id @default(cuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  price      Decimal
+  leadDays   Int?
+
+  @@unique([supplierId, materialId])
+}
+
+model LabourCategory {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  rates     LabourRate[]
+  employees Employee[]
+}
+
+model LabourRate {
+  id             String         @id @default(cuid())
+  categoryId     String
+  category       LabourCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  projectId      String?
+  dailyRate      Decimal        @default(0)
+  hourlyRate     Decimal        @default(0)
+  overtimeRate   Decimal        @default(0)
+  transportAllow Decimal        @default(0)
+  accommodation  Decimal        @default(0)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Employee {
+  id         String          @id @default(cuid())
+  name       String
+  email      String?
+  phone      String?
+  categoryId String?
+  category   LabourCategory? @relation(fields: [categoryId], references: [id])
+  dailyRate  Decimal         @default(0)
+  isActive   Boolean         @default(true)
+  notes      String?
+  createdAt  DateTime        @default(now())
+}
+
+model Boq {
+  id             String      @id @default(cuid())
+  number         String      @unique
+  projectId      String
+  project        Project     @relation(fields: [projectId], references: [id])
+  title          String
+  overheadPct    Decimal     @default(10)
+  contingencyPct Decimal     @default(5)
+  profitPct      Decimal     @default(12)
+  discount       Decimal     @default(0)
+  vatPct         Decimal     @default(13)
+  notes          String?
+  deletedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  items          BoqItem[]
+  quotations     Quotation[]
+}
+
+model BoqItem {
+  id            String  @id @default(cuid())
+  boqId         String
+  boq           Boq     @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  itemNo        String
+  description   String
+  specification String?
+  category      String
+  unit          String
+  quantity      Decimal
+  materialRate  Decimal @default(0)
+  labourRate    Decimal @default(0)
+  equipmentRate Decimal @default(0)
+  remarks       String?
+  sortOrder     Int     @default(0)
+}
+
+model Quotation {
+  id            String          @id @default(cuid())
+  number        String          @unique
+  date          DateTime        @default(now())
+  validUntil    DateTime?
+  clientId      String
+  client        Client          @relation(fields: [clientId], references: [id])
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id])
+  boqId         String?
+  boq           Boq?            @relation(fields: [boqId], references: [id])
+  scopeOfWork   String?
+  paymentTerms  String?
+  deliveryTerms String?
+  warranty      String?
+  exclusions    String?
+  inclusions    String?
+  notes         String?
+  discount      Decimal         @default(0)
+  vatPct        Decimal         @default(13)
+  status        DocumentStatus  @default(DRAFT)
+  deletedAt     DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  items         QuotationItem[]
+}
+
+model QuotationItem {
+  id            String    @id @default(cuid())
+  quotationId   String
+  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  description   String
+  specification String?
+  quantity      Decimal
+  unit          String
+  rate          Decimal
+  sortOrder     Int       @default(0)
+}
+
+model Invoice {
+  id           String         @id @default(cuid())
+  number       String         @unique
+  date         DateTime       @default(now())
+  dueDate      DateTime?
+  clientId     String
+  client       Client         @relation(fields: [clientId], references: [id])
+  projectId    String
+  project      Project        @relation(fields: [projectId], references: [id])
+  paymentTerms String?
+  discount     Decimal        @default(0)
+  vatPct       Decimal        @default(13)
+  paidAmount   Decimal        @default(0)
+  status       DocumentStatus @default(DRAFT)
+  notes        String?
+  deletedAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  items        InvoiceItem[]
+  payments     Payment[]
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Decimal
+  unit        String
+  rate        Decimal
+  sortOrder   Int     @default(0)
+}
+
+model Payment {
+  id         String      @id @default(cuid())
+  date       DateTime    @default(now())
+  amount     Decimal
+  projectId  String?
+  project    Project?    @relation(fields: [projectId], references: [id])
+  invoiceId  String?
+  invoice    Invoice?    @relation(fields: [invoiceId], references: [id])
+  clientId   String?
+  client     Client?     @relation(fields: [clientId], references: [id])
+  supplierId String?
+  supplier   Supplier?   @relation(fields: [supplierId], references: [id])
+  kind       PaymentKind @default(CLIENT)
+  method     String      @default("Bank")
+  reference  String?
+  notes      String?
+  createdAt  DateTime    @default(now())
+}
+
+model Expense {
+  id            String          @id @default(cuid())
+  number        String          @unique
+  date          DateTime        @default(now())
+  projectId     String?
+  project       Project?        @relation(fields: [projectId], references: [id])
+  category      ExpenseCategory @default(OTHER)
+  description   String
+  amount        Decimal
+  vendor        String?
+  paymentMethod String          @default("Cash")
+  receiptPath   String?
+  notes         String?
+  createdAt     DateTime        @default(now())
+}
+
+model Drawing {
+  id         String            @id @default(cuid())
+  number     String
+  title      String
+  projectId  String
+  project    Project           @relation(fields: [projectId], references: [id])
+  discipline String
+  status     DocumentStatus    @default(DRAFT)
+  preparedBy String?
+  checkedBy  String?
+  approvedBy String?
+  date       DateTime          @default(now())
+  createdAt  DateTime          @default(now())
+  revisions  DrawingRevision[]
+}
+
+model DrawingRevision {
+  id        String   @id @default(cuid())
+  drawingId String
+  drawing   Drawing  @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+  revision  String
+  filePath  String
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model MethodStatementTemplate {
+  id               String  @id @default(cuid())
+  name             String
+  purpose          String?
+  scope            String?
+  responsibilities String?
+  tools            String?
+  materials        String?
+  safety           String?
+  ppe              String?
+  procedure        String?
+  qualityControl   String?
+  inspection       String?
+  testing          String?
+  acceptance       String?
+  riskAssessment   String?
+  references       String?
+}
+
+model MethodStatement {
+  id               String         @id @default(cuid())
+  number           String         @unique
+  title            String
+  projectId        String
+  project          Project        @relation(fields: [projectId], references: [id])
+  purpose          String?
+  scope            String?
+  responsibilities String?
+  tools            String?
+  materials        String?
+  safety           String?
+  ppe              String?
+  procedure        String?
+  qualityControl   String?
+  inspection       String?
+  testing          String?
+  acceptance       String?
+  riskAssessment   String?
+  references       String?
+  status           DocumentStatus @default(DRAFT)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model TestingChecklist {
+  id              String        @id @default(cuid())
+  number          String        @unique
+  projectId       String
+  project         Project       @relation(fields: [projectId], references: [id])
+  category        String
+  equipment       String?
+  testDate        DateTime      @default(now())
+  testedById      String?
+  testedBy        User?         @relation("TestedBy", fields: [testedById], references: [id])
+  witnessedBy     String?
+  instrument      String?
+  calibrationDate DateTime?
+  overallResult   String?
+  remarks         String?
+  createdAt       DateTime      @default(now())
+  items           TestingItem[]
+}
+
+model TestingItem {
+  id          String           @id @default(cuid())
+  checklistId String
+  checklist   TestingChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  name        String
+  result      String?
+  passFail    String?
+  remarks     String?
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+  folder    String
+  title     String
+  filePath  String
+  mimeType  String?
+  createdAt DateTime @default(now())
+}
+
+model StandardDocument {
+  id            String   @id @default(cuid())
+  name          String
+  number        String?
+  edition       String?
+  category      String
+  description   String?
+  filePath      String?
+  applicability String?
+  notes         String?
+  createdAt     DateTime @default(now())
+}
+
+model SiteSurvey {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id])
+  clientId       String
+  client         Client   @relation(fields: [clientId], references: [id])
+  location       String?
+  surveyDate     DateTime @default(now())
+  engineerId     String?
+  engineer       User?    @relation(fields: [engineerId], references: [id])
+  incomingSupply String?
+  voltage        String?
+  phase          String?
+  mainBreaker    String?
+  transformer    String?
+  generator      String?
+  existingDb     String?
+  existingCable  String?
+  earthing       String?
+  loadNote       String?
+  availableSpace String?
+  cableRoute     String?
+  cableTray      String?
+  panelLocation  String?
+  lighting       String?
+  emergencyLight String?
+  fireAlarm      String?
+  ups            String?
+  otherObs       String?
+  measurements   String?
+  photosJson     String?
+  createdAt      DateTime @default(now())
+}
+
+model PurchaseOrder {
+  id           String              @id @default(cuid())
+  number       String              @unique
+  supplierId   String
+  supplier     Supplier            @relation(fields: [supplierId], references: [id])
+  projectId    String?
+  project      Project?            @relation(fields: [projectId], references: [id])
+  deliveryDate DateTime?
+  paymentTerms String?
+  vatPct       Decimal             @default(13)
+  status       DocumentStatus      @default(DRAFT)
+  notes        String?
+  createdAt    DateTime            @default(now())
+  items        PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id          String        @id @default(cuid())
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  materialId  String?
+  material    Material?     @relation(fields: [materialId], references: [id])
+  description String
+  quantity    Decimal
+  rate        Decimal
+}
+
+model InventoryMove {
+  id         String            @id @default(cuid())
+  materialId String
+  material   Material          @relation(fields: [materialId], references: [id])
+  projectId  String?
+  project    Project?          @relation(fields: [projectId], references: [id])
+  type       InventoryMoveType
+  quantity   Decimal
+  note       String?
+  createdAt  DateTime          @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  title     String
+  body      String
+  type      String
+  read      Boolean  @default(false)
+  href      String?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  message   String
+  createdAt DateTime @default(now())
+}

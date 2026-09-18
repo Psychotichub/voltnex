@@ -1,69 +1,115 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, Building2, ClipboardCheck, Factory, ShieldCheck, Zap } from "lucide-react";
+import { PublicFooter, PublicHeader } from "@/components/public-chrome";
+import { Button } from "@/components/ui/button";
+import { prisma } from "@/lib/db";
 
-export default function Home() {
+const services = [
+  "Electrical Contracting",
+  "Industrial Electrical",
+  "Panel Installation",
+  "Generator & ATS",
+  "UPS",
+  "Solar",
+  "Earthing",
+  "Fire Alarm",
+  "CCTV",
+  "Testing & Commissioning",
+];
+
+export default async function Home() {
+  const company = await prisma.company.findFirst();
+  const projects = await prisma.project.findMany({
+    orderBy: { contractValue: "desc" },
+    select: { code: true, name: true, location: true, projectType: true, status: true },
+    take: 3,
+  });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="flex min-h-screen flex-col bg-paper">
+      <PublicHeader />
+      <main>
+        <section className="bg-navy text-paper">
+          <div className="mx-auto grid min-h-[620px] max-w-6xl gap-10 px-4 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brass">
+                Nepal electrical engineering contractor
+              </p>
+              <h1 className="mt-5 font-display text-4xl font-semibold leading-tight sm:text-6xl">
+                {company?.name ?? "VoltNex Engineering Pvt. Ltd."}
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-paper/72">
+                Design-aware electrical contracting, BOQ preparation, project execution, testing, commissioning, and maintenance for commercial, industrial, hospital, hotel, and residential projects.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button asChild variant="brass" size="lg">
+                  <Link href="/contact">
+                    Request quotation <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="border-white/20 bg-transparent text-paper hover:bg-white/10">
+                  <Link href="/login">Staff ERP login</Link>
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                ["Active ERP modules", "24", ClipboardCheck],
+                ["Default currency", "NPR", Building2],
+                ["Target sectors", "9", Factory],
+                ["Controlled access", "RBAC", ShieldCheck],
+              ].map(([label, value, Icon]) => (
+                <div key={label as string} className="rounded-lg border border-white/10 bg-white/[0.06] p-5">
+                  <Icon className="h-5 w-5 text-brass" />
+                  <p className="mt-6 font-display text-3xl font-semibold">{value as string}</p>
+                  <p className="mt-1 text-sm text-paper/64">{label as string}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 py-12">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brass">Services</p>
+              <h2 className="font-display text-2xl font-semibold text-navy">Electrical contracting capability</h2>
+            </div>
+            <Zap className="hidden h-8 w-8 text-brass sm:block" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {services.map((service) => (
+              <div key={service} className="rounded-lg border border-line bg-white px-4 py-3 text-sm font-medium text-navy shadow-sm">
+                {service}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="border-y border-line bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-12">
+            <div className="mb-6">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brass">Project references</p>
+              <h2 className="font-display text-2xl font-semibold text-navy">Demo portfolio from the ERP</h2>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {projects.map((project) => (
+                <article key={project.code} className="rounded-lg border border-line bg-paper p-5">
+                  <p className="text-xs font-semibold text-brass">{project.code}</p>
+                  <h3 className="mt-2 font-display text-lg font-semibold text-navy">{project.name}</h3>
+                  <p className="mt-2 text-sm text-slate">
+                    {project.location} / {project.projectType.replaceAll("_", " ")}
+                  </p>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-navy">
+                    {project.status.replaceAll("_", " ")}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
+      <PublicFooter />
     </div>
   );
 }
