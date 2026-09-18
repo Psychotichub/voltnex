@@ -17,6 +17,20 @@ export async function workbookToBuffer(
   return Buffer.from(buf);
 }
 
+export async function exportToExcel(
+  data: Array<Record<string, string | number>>,
+  sheetName: string,
+) {
+  if (data.length === 0) {
+    return workbookToBuffer(sheetName, [], []);
+  }
+
+  const columns = Object.keys(data[0]);
+  const rows = data.map((row) => columns.map((col) => row[col] ?? ""));
+  
+  return workbookToBuffer(sheetName, columns, rows);
+}
+
 export const BOQ_TEMPLATE_COLUMNS = [
   "Item No",
   "Description",

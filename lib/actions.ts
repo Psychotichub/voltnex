@@ -15,7 +15,7 @@ import { z } from "zod";
 import { writeAudit } from "@/lib/audit";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { documentTotals, summarizeBoq } from "@/lib/finance";
+import { documentTotals } from "@/lib/finance";
 import { saveUpload } from "@/lib/files";
 import { assertNonNegative, assertPercent, money } from "@/lib/money";
 import { nextNumber } from "@/lib/numbering";
@@ -68,6 +68,62 @@ export async function createClient(form: FormData) {
   if (!data.name) throw new Error("Client name is required.");
   const created = await prisma.client.create({ data });
   await writeAudit({ userId: session.user.id, action: "create", entity: "Client", entityId: created.id, newValue: data });
+  revalidatePath("/clients");
+}
+
+export async function updateClient(form: FormData) {
+  const session = await guard("edit");
+  const id = str(form, "id");
+  const old = await prisma.client.findUnique({ where: { id } });
+  if (!old) throw new Error("Client not found");
+
+  const data = {
+    name: str(form, "name"),
+    company: opt(form, "company"),
+    contactPerson: opt(form, "contactPerson"),
+    phone: opt(form, "phone"),
+    email: opt(form, "email"),
+    address: opt(form, "address"),
+    panVat: opt(form, "panVat"),
+    type: (str(form, "type") || "COMMERCIAL") as ClientType,
+    notes: opt(form, "notes"),
+  };
+
+  await prisma.client.update({
+    where: { id },
+    data,
+  });
+
+  await writeAudit({
+    userId: session.user.id,
+    action: "update",
+    entity: "Client",
+    entityId: id,
+    oldValue: old,
+    newValue: data,
+  });
+  revalidatePath("/clients");
+  revalidatePath(`/clients/${id}`);
+}
+
+export async function deleteClient(form: FormData) {
+  const session = await guard("delete");
+  const id = str(form, "id");
+  const client = await prisma.client.findUnique({ where: { id } });
+  if (!client) throw new Error("Client not found");
+
+  await prisma.client.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+
+  await writeAudit({
+    userId: session.user.id,
+    action: "delete",
+    entity: "Client",
+    entityId: id,
+    oldValue: client,
+  });
   revalidatePath("/clients");
 }
 
@@ -229,6 +285,88 @@ export async function createBoq(form: FormData) {
   await writeAudit({ userId: session.user.id, action: "create", entity: "Boq", entityId: created.id });
   revalidatePath("/boq");
   return created.id;
+}
+
+export async function importBoqFromExcel(form: FormData) {
+  const session = await guard("estimate");
+  const file = form.get("file");
+  const projectId = str(form, "projectId");
+
+  if (!file || !(file instanceof File)) {
+    throw new Error("No file provided");
+  }
+
+  if (!projectId) {
+    throw new Error("Project ID required");
+  }
+
+  const ExcelJS = (await import("exceljs")).default;
+  const buffer = await file.arrayBuffer();
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+
+  const worksheet = workbook.worksheets[0];
+  const data: Record<string, unknown>[] = [];
+  const headers: string[] = [];
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) {
+      row.eachCell((cell) => {
+        headers.push(cell.value as string);
+      });
+    } else {
+      const rowData: Record<string, unknown> = {};
+      row.eachCell((cell, colNumber) => {
+        rowData[headers[colNumber - 1]] = cell.value;
+      });
+      if (Object.keys(rowData).length > 0) {
+        data.push(rowData);
+      }
+    }
+  });
+
+  // Create BOQ
+  const boqNumber = await nextNumber("boq");
+  const boq = await prisma.boq.create({
+    data: {
+      number: boqNumber,
+      projectId,
+      title: `Imported BOQ - ${new Date().toLocaleDateString()}`,
+      overheadPct: 10,
+      contingencyPct: 5,
+      profitPct: 12,
+      discount: 0,
+      vatPct: 13,
+    },
+  });
+
+  // Create BOQ items from imported data
+  let sortOrder = 0;
+  for (const row of data) {
+    if (row["Item No"] && row["Description"]) {
+      await prisma.boqItem.create({
+        data: {
+          boqId: boq.id,
+          itemNo: String(row["Item No"]),
+          description: String(row["Description"]),
+          specification: row["Specification"] ? String(row["Specification"]) : null,
+          category: row["Category"] ? String(row["Category"]) : "Miscellaneous",
+          unit: row["Unit"] ? String(row["Unit"]) : "Nos",
+          quantity: Number(row["Quantity"]) || 0,
+          materialRate: Number(row["Material Rate"]) || 0,
+          labourRate: Number(row["Labour Rate"]) || 0,
+          equipmentRate: Number(row["Equipment Rate"]) || 0,
+          remarks: row["Remarks"] ? String(row["Remarks"]) : null,
+          sortOrder,
+        },
+      });
+      sortOrder++;
+    }
+  }
+
+  await writeAudit({ userId: session.user.id, action: "create", entity: "Boq", entityId: boq.id });
+  revalidatePath("/boq");
+  return boq.id;
 }
 
 export async function addBoqItem(form: FormData) {
@@ -707,6 +845,49 @@ export async function createUser(form: FormData) {
   revalidatePath("/users");
 }
 
+export async function toggleUserStatus(form: FormData) {
+  const session = await guard("manage_users");
+  const id = str(form, "id");
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new Error("User not found");
+  
+  await prisma.user.update({
+    where: { id },
+    data: { isActive: !user.isActive },
+  });
+  
+  await writeAudit({
+    userId: session.user.id,
+    action: "update",
+    entity: "User",
+    entityId: id,
+    oldValue: { isActive: user.isActive },
+    newValue: { isActive: !user.isActive },
+  });
+  revalidatePath("/users");
+}
+
+export async function deleteUser(form: FormData) {
+  const session = await guard("manage_users");
+  const id = str(form, "id");
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new Error("User not found");
+  
+  await prisma.user.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+  
+  await writeAudit({
+    userId: session.user.id,
+    action: "delete",
+    entity: "User",
+    entityId: id,
+    oldValue: user,
+  });
+  revalidatePath("/users");
+}
+
 export async function createContactMessage(form: FormData) {
   const parsed = z
     .object({
@@ -789,5 +970,3 @@ export async function addStandard(form: FormData) {
   });
   revalidatePath("/standards");
 }
-
-export { summarizeBoq };

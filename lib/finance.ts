@@ -17,13 +17,13 @@ export function boqItemTotals(item: {
 }
 
 export function summarizeBoq(
-  items: Array<{
-    quantity: unknown;
-    materialRate: unknown;
-    labourRate: unknown;
-    equipmentRate: unknown;
-  }>,
-  extras: {
+  boq: {
+    items: Array<{
+      quantity: unknown;
+      materialRate: unknown;
+      labourRate: unknown;
+      equipmentRate: unknown;
+    }>;
     overheadPct: unknown;
     contingencyPct: unknown;
     profitPct: unknown;
@@ -31,23 +31,29 @@ export function summarizeBoq(
     vatPct: unknown;
   },
 ) {
-  const works = items.reduce((sum, item) => add(sum, boqItemTotals(item).total), money(0));
-  const overhead = percentOf(works, String(extras.overheadPct));
-  const contingency = percentOf(works, String(extras.contingencyPct));
-  const profit = percentOf(add(works, overhead, contingency), String(extras.profitPct));
+  const works = boq.items.reduce((sum, item) => add(sum, boqItemTotals(item).total), money(0));
+  const material = boq.items.reduce((sum, item) => add(sum, boqItemTotals(item).materialTotal), money(0));
+  const labour = boq.items.reduce((sum, item) => add(sum, boqItemTotals(item).labourTotal), money(0));
+  const equipment = boq.items.reduce((sum, item) => add(sum, boqItemTotals(item).equipmentTotal), money(0));
+  const overhead = percentOf(works, String(boq.overheadPct));
+  const contingency = percentOf(works, String(boq.contingencyPct));
+  const profit = percentOf(add(works, overhead, contingency), String(boq.profitPct));
   const subtotal = add(works, overhead, contingency, profit);
-  const afterDiscount = roundMoney(subtotal.minus(money(String(extras.discount))));
-  const vat = percentOf(afterDiscount, String(extras.vatPct));
+  const afterDiscount = roundMoney(subtotal.minus(money(String(boq.discount))));
+  const vat = percentOf(afterDiscount, String(boq.vatPct));
   const grand = add(afterDiscount, vat);
   return {
-    works: toMoneyString(works),
-    overhead: toMoneyString(overhead),
-    contingency: toMoneyString(contingency),
-    profit: toMoneyString(profit),
-    subtotal: toMoneyString(subtotal),
-    afterDiscount: toMoneyString(afterDiscount),
-    vat: toMoneyString(vat),
-    grand: toMoneyString(grand),
+    material,
+    labour,
+    equipment,
+    works,
+    overhead,
+    contingency,
+    profit,
+    subtotal,
+    net: afterDiscount,
+    vat,
+    grand,
   };
 }
 

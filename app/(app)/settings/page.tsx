@@ -1,4 +1,4 @@
-import { Building2, Landmark, MapPin } from "lucide-react";
+import { Building2, Landmark, MapPin, Upload, X } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/field";
@@ -61,8 +61,32 @@ export default async function SettingsPage() {
               <CardTitle>Documents & Website</CardTitle>
             </div>
             <div className="grid gap-4">
-              <Field label="Logo upload"><Input name="logo" type="file" accept="image/*" /></Field>
-              <Field label="Signature upload"><Input name="signature" type="file" accept="image/*" /></Field>
+              <div className="grid gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate">Company Logo</label>
+                {company.logoPath && (
+                  <div className="relative mb-2 flex h-20 w-20 items-center justify-center rounded-md border border-line bg-paper">
+                    <img src={company.logoPath} alt="Company Logo" className="max-h-full max-w-full object-contain" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input name="logo" type="file" accept="image/*" className="flex-1" />
+                  <Upload className="h-4 w-4 text-slate" />
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate">Authorized Signature</label>
+                {company.signaturePath && (
+                  <div className="relative mb-2 flex h-16 w-32 items-center justify-center rounded-md border border-line bg-paper">
+                    <img src={company.signaturePath} alt="Signature" className="max-h-full max-w-full object-contain" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input name="signature" type="file" accept="image/*" className="flex-1" />
+                  <Upload className="h-4 w-4 text-slate" />
+                </div>
+              </div>
+
               <Field label="Quotation terms"><Textarea name="quotationTerms" defaultValue={company.quotationTerms ?? ""} /></Field>
               <Field label="Invoice terms"><Textarea name="invoiceTerms" defaultValue={company.invoiceTerms ?? ""} /></Field>
               <Field label="Payment terms"><Textarea name="paymentTerms" defaultValue={company.paymentTerms ?? ""} /></Field>

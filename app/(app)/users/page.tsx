@@ -1,16 +1,20 @@
 import { Role } from "@prisma/client";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Edit2, Trash2, Power } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { createUser } from "@/lib/actions";
+import { StatusBadge } from "@/components/status-badge";
+import { createUser, toggleUserStatus, deleteUser } from "@/lib/actions";
 import { prisma } from "@/lib/db";
 import { roleLabel } from "@/lib/rbac";
 
 export default async function UsersPage() {
-  const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" } });
+  const users = await prisma.user.findMany({ 
+    where: { deletedAt: null },
+    orderBy: { createdAt: "desc" } 
+  });
 
   return (
     <>
@@ -42,17 +46,49 @@ export default async function UsersPage() {
           </form>
         </Card>
 
-        <DataTable columns={["Name", "Email", "Role", "Phone", "Status"]}>
-          {users.map((user) => (
-            <tr key={user.id}>
-              <td className="px-3 py-3 font-medium text-navy">{user.name}</td>
-              <td className="px-3 py-3 text-slate">{user.email}</td>
-              <td className="px-3 py-3 text-slate">{roleLabel(user.role)}</td>
-              <td className="px-3 py-3 text-slate">{user.phone ?? "-"}</td>
-              <td className="px-3 py-3 text-slate">{user.isActive ? "Active" : "Inactive"}</td>
-            </tr>
-          ))}
-        </DataTable>
+        <Card className="rounded-lg">
+          <CardTitle>User Accounts</CardTitle>
+          <DataTable columns={["Name", "Email", "Role", "Phone", "Status", "Actions"]}>
+            {users.map((user) => (
+              <tr key={user.id}>
+                <td className="px-3 py-3 font-medium text-navy">{user.name}</td>
+                <td className="px-3 py-3 text-slate">{user.email}</td>
+                <td className="px-3 py-3 text-slate">{roleLabel(user.role)}</td>
+                <td className="px-3 py-3 text-slate">{user.phone ?? "-"}</td>
+                <td className="px-3 py-3">
+                  <StatusBadge value={user.isActive ? "ACTIVE" : "INACTIVE"} />
+                </td>
+                <td className="px-3 py-3">
+                  <div className="flex items-center gap-2">
+                    <form action={toggleUserStatus}>
+                      <input type="hidden" name="id" value={user.id} />
+                      <Button 
+                        type="submit" 
+                        variant="ghost" 
+                        size="sm"
+                        title={user.isActive ? "Deactivate user" : "Activate user"}
+                      >
+                        <Power className="h-4 w-4" />
+                      </Button>
+                    </form>
+                    <form action={deleteUser}>
+                      <input type="hidden" name="id" value={user.id} />
+                      <Button 
+                        type="submit" 
+                        variant="ghost" 
+                        size="sm"
+                        title="Delete user"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </DataTable>
+        </Card>
       </div>
     </>
   );

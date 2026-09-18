@@ -8,6 +8,11 @@ import {
   FolderKanban,
   Receipt,
   TrendingUp,
+  Wallet,
+  Calendar,
+  TrendingDown,
+  DollarSign,
+  Hammer,
 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
@@ -21,10 +26,12 @@ function Metric({
   label,
   value,
   icon: Icon,
+  trend,
 }: {
   label: string;
   value: string;
   icon: React.ComponentType<{ className?: string }>;
+  trend?: "up" | "down" | "neutral";
 }) {
   return (
     <Card className="rounded-lg">
@@ -53,6 +60,7 @@ export default async function DashboardPage() {
     invoices,
     expenses,
     materials,
+    payments,
     notifications,
   ] = await Promise.all([
     prisma.project.count({ where: { status: { in: ["PLANNING", "QUOTATION", "AWARDED", "IN_PROGRESS", "ON_HOLD"] } } }),
@@ -61,8 +69,9 @@ export default async function DashboardPage() {
     prisma.quotation.count({ where: { status: "ACCEPTED" } }),
     prisma.project.findMany({ include: { client: true }, orderBy: { updatedAt: "desc" }, take: 5 }),
     prisma.invoice.findMany({ include: { items: true, client: true, project: true }, orderBy: { dueDate: "asc" } }),
-    prisma.expense.findMany({ select: { amount: true } }),
+    prisma.expense.findMany({ select: { amount: true, category: true } }),
     prisma.material.findMany({ orderBy: { name: "asc" } }),
+    prisma.payment.findMany({ select: { amount: true, kind: true } }),
     prisma.notification.findMany({ orderBy: { createdAt: "desc" }, take: 5 }),
   ]);
 
@@ -72,21 +81,34 @@ export default async function DashboardPage() {
   const actualCost = moneySum(projects, (project) => project.actualCost);
   const estimatedProfit = moneySum(projects, (project) => project.estimatedProfit);
   const actualProfit = moneySum(projects, (project) => project.actualProfit);
+  
   const expenseTotal = expenses.reduce((sum, expense) => sum.plus(expense.amount), money(0));
+  const materialExpenses = expenses.filter(e => e.category === "MATERIAL").reduce((sum, e) => sum.plus(e.amount), money(0));
+  const labourExpenses = expenses.filter(e => e.category === "LABOUR").reduce((sum, e) => sum.plus(e.amount), money(0));
+  
   const receivables = invoices.reduce((sum, invoice) => {
     const total = money(documentTotals(invoice.items, invoice.discount, invoice.vatPct).grand);
     return sum.plus(total.minus(invoice.paidAmount));
   }, money(0));
+  
   const outstandingInvoices = invoices.filter((invoice) =>
     money(documentTotals(invoice.items, invoice.discount, invoice.vatPct).grand).greaterThan(invoice.paidAmount),
   ).length;
+  
+  const clientPayments = payments.filter(p => p.kind === "CLIENT").reduce((sum, p) => sum.plus(p.amount), money(0));
+  const supplierPayments = payments.filter(p => p.kind === "SUPPLIER").reduce((sum, p) => sum.plus(p.amount), money(0));
+  const labourPayments = payments.filter(p => p.kind === "LABOUR").reduce((sum, p) => sum.plus(p.amount), money(0));
+  
+  const cashFlow = clientPayments.minus(supplierPayments).minus(labourPayments).minus(expenseTotal);
+  
   const costPct = contractValue.isZero() ? 0 : Math.min(100, actualCost.dividedBy(contractValue).times(100).toNumber());
+  const profitMargin = contractValue.isZero() ? 0 : actualProfit.dividedBy(contractValue).times(100).toNumber();
 
   return (
     <>
       <PageHeader
         title="Dashboard"
-        description="Phase 1 control center for projects, quotations, invoices, receivables, cost, stock alerts, and approvals."
+        description="Professional electrical contracting control center for projects, quotations, invoices, receivables, cost, cash flow, and operational metrics."
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -98,6 +120,14 @@ export default async function DashboardPage() {
         <Metric label="Total receivables" value={formatNPR(receivables)} icon={Banknote} />
         <Metric label="Total project cost" value={formatNPR(actualCost)} icon={Boxes} />
         <Metric label="Estimated profit" value={formatNPR(estimatedProfit)} icon={TrendingUp} />
+        <Metric label="Actual profit" value={formatNPR(actualProfit)} icon={DollarSign} />
+        <Metric label="Monthly revenue" value={formatNPR(clientPayments)} icon={TrendingUp} />
+        <Metric label="Monthly expenses" value={formatNPR(expenseTotal)} icon={Wallet} />
+        <Metric label="Cash flow" value={formatNPR(cashFlow)} icon={Banknote} />
+        <Metric label="Material purchases" value={formatNPR(materialExpenses)} icon={Boxes} />
+        <Metric label="Labour cost" value={formatNPR(labourExpenses)} icon={Hammer} />
+        <Metric label="Profit margin" value={`${profitMargin.toFixed(1)}%`} icon={TrendingUp} />
+        <Metric label="Cost vs contract" value={`${costPct.toFixed(1)}%`} icon={TrendingDown} />
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
@@ -146,7 +176,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-6">
-        <DataTable columns={["Project", "Client", "Status", "Workflow", "Contract", "Actual Cost"]}>
+        <DataTable columns={["Project", "Client", "Status", "Workflow", "Contract", "Actual Cost", "Profit"]}>
           {projects.map((project) => (
             <tr key={project.id}>
               <td className="px-3 py-3">
@@ -160,6 +190,7 @@ export default async function DashboardPage() {
               <td className="px-3 py-3 text-slate">{project.workflow.replaceAll("_", " ")}</td>
               <td className="px-3 py-3 font-medium text-navy">{formatNPR(project.contractValue)}</td>
               <td className="px-3 py-3 font-medium text-navy">{formatNPR(project.actualCost)}</td>
+              <td className="px-3 py-3 font-medium text-navy">{formatNPR(project.actualProfit)}</td>
             </tr>
           ))}
         </DataTable>
