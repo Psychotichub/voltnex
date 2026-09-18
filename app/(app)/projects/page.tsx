@@ -1,15 +1,15 @@
 import { ClientType, ProjectStatus, ProjectWorkflow } from "@prisma/client";
-import { FolderKanban, Search, Filter, Download, Plus } from "lucide-react";
+import { FolderKanban, Search, Filter, Download, Plus, Edit2, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { createProject, deleteProject } from "@/lib/actions";
+import { prisma } from "@/lib/db";
+import { formatNPR } from "@/lib/money";
 import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { StatusBadge } from "@/components/status-badge";
-import { createProject } from "@/lib/actions";
-import { prisma } from "@/lib/db";
-import { formatNPR } from "@/lib/money";
 
 export default async function ProjectsPage({
   searchParams,
@@ -168,44 +168,22 @@ export default async function ProjectsPage({
             </div>
           </div>
 
-          {/* Search and Filter */}
-          <div className="mb-4 flex gap-2">
-            <form className="flex-1" action="">
-              <div className="relative">
+{/* Search and Filter */}
+            <form className="mb-4 flex gap-2" action="/projects" method="get">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate" />
-                <Input 
-                  name="search" 
-                  placeholder="Search projects..." 
-                  defaultValue={search}
-                  className="pl-9"
-                />
+                <Input name="search" placeholder="Search projects..." defaultValue={search} className="pl-9" />
               </div>
-            </form>
-            <form className="w-40" action="">
-              <select 
-                name="status" 
-                className="h-9 w-full rounded-md border border-line bg-white px-3 text-sm text-navy shadow-sm"
-                defaultValue={statusFilter}
-              >
+              <select name="status" className="h-9 w-40 rounded-md border border-line bg-white px-3 text-sm text-navy shadow-sm" defaultValue={statusFilter}>
                 <option value="">All Status</option>
-                {Object.values(ProjectStatus).map((status) => (
-                  <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
-                ))}
+                {Object.values(ProjectStatus).map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
               </select>
-            </form>
-            <form className="w-40" action="">
-              <select 
-                name="workflow" 
-                className="h-9 w-full rounded-md border border-line bg-white px-3 text-sm text-navy shadow-sm"
-                defaultValue={workflowFilter}
-              >
+              <select name="workflow" className="h-9 w-40 rounded-md border border-line bg-white px-3 text-sm text-navy shadow-sm" defaultValue={workflowFilter}>
                 <option value="">All Stages</option>
-                {Object.values(ProjectWorkflow).map((workflow) => (
-                  <option key={workflow} value={workflow}>{workflow.replaceAll("_", " ")}</option>
-                ))}
+                {Object.values(ProjectWorkflow).map((workflow) => <option key={workflow} value={workflow}>{workflow.replaceAll("_", " ")}</option>)}
               </select>
+              <Button type="submit" variant="outline" size="sm">Filter</Button>
             </form>
-          </div>
 
           <DataTable 
             columns={[
@@ -255,9 +233,22 @@ export default async function ProjectsPage({
                   </div>
                 </td>
                 <td className="px-3 py-3">
-                  <Link href={`/projects/${project.id}`}>
-                    <Button variant="ghost" size="sm">View</Button>
-                  </Link>
+                  <div className="flex gap-1">
+                    <Link href={`/projects/${project.id}`}>
+                      <Button variant="ghost" size="sm">View</Button>
+                    </Link>
+                    <Link href={`/projects/${project.id}/edit`}>
+                      <Button variant="ghost" size="sm" className="gap-1">
+                        <Edit2 className="h-3 w-3" /> Edit
+                      </Button>
+                    </Link>
+                    <form action={deleteProject} method="post" className="inline">
+                      <input type="hidden" name="id" value={project.id} />
+                      <Button variant="ghost" size="sm" type="submit" className="gap-1 text-red-600 hover:text-red-600">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}

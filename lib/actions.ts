@@ -182,6 +182,50 @@ export async function updateProjectStatus(form: FormData) {
   revalidatePath(`/projects/${id}`);
 }
 
+export async function updateProject(form: FormData) {
+  const session = await guard("edit");
+  const id = str(form, "id");
+  const old = await prisma.project.findUnique({ where: { id } });
+  const contractValue = dec(form, "contractValue");
+  const estimatedCost = dec(form, "estimatedCost");
+  await prisma.project.update({
+    where: { id },
+    data: {
+      name: str(form, "name"),
+      clientId: str(form, "clientId"),
+      location: opt(form, "location"),
+      projectType: (str(form, "projectType") || "COMMERCIAL") as ClientType,
+      startDate: opt(form, "startDate") ? new Date(str(form, "startDate")) : null,
+      expectedCompletion: opt(form, "expectedCompletion") ? new Date(str(form, "expectedCompletion")) : null,
+      contractValue,
+      estimatedCost,
+      estimatedProfit: new Prisma.Decimal(money(contractValue).minus(money(estimatedCost)).toFixed(2)),
+      status: str(form, "status") as ProjectStatus,
+      workflow: str(form, "workflow") as ProjectWorkflow,
+      notes: opt(form, "notes"),
+    },
+  });
+  await writeAudit({
+    userId: session.user.id,
+    action: "update",
+    entity: "Project",
+    entityId: id,
+    oldValue: old,
+  });
+  revalidatePath(`/projects/${id}`);
+}
+
+export async function deleteProject(form: FormData) {
+  const session = await guard("delete");
+  const id = str(form, "id");
+  await prisma.project.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+  await writeAudit({ userId: session.user.id, action: "delete", entity: "Project", entityId: id });
+  revalidatePath("/projects");
+}
+
 export async function createMaterial(form: FormData) {
   await guard();
   const code = str(form, "code");
@@ -286,6 +330,11 @@ export async function createBoq(form: FormData) {
   await writeAudit({ userId: session.user.id, action: "create", entity: "Boq", entityId: created.id });
   revalidatePath("/boq");
   return created.id;
+}
+
+export async function quickBoq(form: FormData) {
+  await createBoq(form);
+  return;
 }
 
 export async function importBoqFromExcel(form: FormData) {
@@ -439,6 +488,11 @@ export async function createQuotationFromBoq(form: FormData) {
   revalidatePath("/quotations");
 }
 
+export async function quickQuotationFromBoq(form: FormData) {
+  await createQuotationFromBoq(form);
+  return;
+}
+
 export async function updateQuotationStatus(form: FormData) {
   await guard("approve");
   await prisma.quotation.update({
@@ -467,6 +521,11 @@ export async function createInvoice(form: FormData) {
   await writeAudit({ userId: session.user.id, action: "create", entity: "Invoice", entityId: created.id });
   revalidatePath("/invoices");
   return created.id;
+}
+
+export async function quickInvoice(form: FormData) {
+  await createInvoice(form);
+  return;
 }
 
 export async function addInvoiceItem(form: FormData) {

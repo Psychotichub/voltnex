@@ -1,5 +1,12 @@
 import { Briefcase } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Our Projects | VoltNex Engineering",
+  description: "Browse recent projects across residential, commercial, industrial, hospital, and hotel sectors in Nepal.",
+  openGraph: { title: "Our Projects | VoltNex Engineering", description: "Recent project portfolio.", type: "website" },
+};
 
 export default async function WorkPage() {
   const [projects] = await Promise.all([

@@ -24,6 +24,8 @@ import {
   ShoppingCart,
   Warehouse,
   MapPinned,
+  Bell,
+  ScrollText,
 } from "lucide-react";
 
 export const APP_NAV = [
@@ -49,6 +51,8 @@ export const APP_NAV = [
   { href: "/documents", label: "Documents", icon: Files, module: "documents" },
   { href: "/tools", label: "Engineering Tools", icon: Wrench, module: "tools" },
   { href: "/standards", label: "Standards", icon: BookOpen, module: "standards" },
+  { href: "/notifications", label: "Notifications", icon: Bell, module: "notifications" },
+  { href: "/audit-log", label: "Audit Log", icon: ScrollText, module: "audit-log" },
   { href: "/users", label: "Users", icon: UserCog, module: "users" },
   { href: "/settings", label: "Settings", icon: Settings, module: "settings" },
 ] as const;

@@ -1,5 +1,12 @@
 import { Award } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Certifications | VoltNex Engineering",
+  description: "Professional certifications and accreditations held by VoltNex Engineering, Nepal's licensed electrical contractor.",
+  openGraph: { title: "Certifications | VoltNex Engineering", description: "Professional certifications.", type: "website" },
+};
 
 export default async function CertificationsPage() {
   const company = await prisma.company.findFirst();

@@ -1,5 +1,12 @@
 import { Building2 } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "About Us | VoltNex Engineering",
+  description: "Learn about VoltNex Engineering, Nepal's premier electrical contracting company with 24+ active ERP modules.",
+  openGraph: { title: "About Us | VoltNex Engineering", description: "Nepal's premier electrical contracting company.", type: "website" },
+};
 
 export default async function AboutPage() {
   const company = await prisma.company.findFirst();

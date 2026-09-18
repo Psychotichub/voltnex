@@ -1,5 +1,12 @@
 import { Users } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Our Team | VoltNex Engineering",
+  description: "Meet the licensed professional engineers and technicians behind VoltNex Engineering in Nepal.",
+  openGraph: { title: "Our Team | VoltNex Engineering", description: "Licensed professional engineers.", type: "website" },
+};
 
 export default async function TeamPage() {
   const [users] = await Promise.all([

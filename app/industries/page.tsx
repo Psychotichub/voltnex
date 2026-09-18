@@ -1,5 +1,12 @@
 import { Factory, GraduationCap } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Industries Served | VoltNex Engineering",
+  description: "Electrical engineering services across commercial, industrial, hospital, hotel, residential, and government sectors in Nepal.",
+  openGraph: { title: "Industries Served | VoltNex Engineering", description: "Serving diverse sectors across Nepal.", type: "website" },
+};
 
 export default async function IndustriesPage() {
   const company = await prisma.company.findFirst();

@@ -1,5 +1,12 @@
 import { Phone, MapPin, Clock, Send } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Contact Us | VoltNex Engineering",
+  description: "Get in touch with VoltNex Engineering for electrical contracting, BOQ, and project management services in Nepal.",
+  openGraph: { title: "Contact Us | VoltNex Engineering", description: "Reach out to our team.", type: "website" },
+};
 
 export default async function ContactPage() {
   const company = await prisma.company.findFirst();

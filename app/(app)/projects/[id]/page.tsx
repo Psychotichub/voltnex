@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
-import { ArrowLeft, FolderKanban, FileText, Receipt, Wallet, PenTool, FlaskConical, Building2, Users, Calendar, DollarSign } from "lucide-react";
+import { ArrowLeft, FolderKanban, FileText, Receipt, Wallet, PenTool, FlaskConical, Building2, Users, Calendar, DollarSign, Plus } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
-import { updateProjectStatus } from "@/lib/actions";
+import { updateProjectStatus, quickBoq, quickQuotationFromBoq, quickInvoice, createDrawing, createMethodStatement, createTestingChecklist } from "@/lib/actions";
 import { prisma } from "@/lib/db";
 import { formatNPR, money } from "@/lib/money";
 
@@ -219,24 +219,64 @@ export default async function ProjectDetailPage({
               <Link href={`/projects/${project.id}`} className="text-sm font-medium text-brass border-b-2 border-brass pb-2">
                 Overview
               </Link>
-              <Link href={`/projects/${project.id}/boq`} className="text-sm text-slate hover:text-navy pb-2">
-                BOQ ({project.boqs.length})
-              </Link>
-              <Link href={`/projects/${project.id}/quotations`} className="text-sm text-slate hover:text-navy pb-2">
-                Quotations ({project.quotations.length})
-              </Link>
-              <Link href={`/projects/${project.id}/invoices`} className="text-sm text-slate hover:text-navy pb-2">
-                Invoices ({project.invoices.length})
-              </Link>
-              <Link href={`/projects/${project.id}/drawings`} className="text-sm text-slate hover:text-navy pb-2">
-                Drawings ({project.drawings.length})
-              </Link>
-              <Link href={`/projects/${project.id}/method-statements`} className="text-sm text-slate hover:text-navy pb-2">
-                Method Statements ({project.methodStatements.length})
-              </Link>
-              <Link href={`/projects/${project.id}/testing`} className="text-sm text-slate hover:text-navy pb-2">
-                Testing ({project.checklists.length})
-              </Link>
+              <div className="flex items-center gap-1">
+                <Link href={`/projects/${project.id}/boq`} className="text-sm text-slate hover:text-navy pb-2">BOQ ({project.boqs.length})</Link>
+                <form action={quickBoq} method="post" className="inline">
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <Button type="submit" variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </form>
+              </div>
+              <div className="flex items-center gap-1">
+                <Link href={`/projects/${project.id}/quotations`} className="text-sm text-slate hover:text-navy pb-2">Quotations ({project.quotations.length})</Link>
+                <form action={quickQuotationFromBoq} method="post" className="inline">
+                  <input type="hidden" name="boqId" value={project.boqs[0]?.id ?? ""} />
+                  <Button type="submit" variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </form>
+              </div>
+              <div className="flex items-center gap-1">
+                <Link href={`/projects/${project.id}/invoices`} className="text-sm text-slate hover:text-navy pb-2">Invoices ({project.invoices.length})</Link>
+                <form action={quickInvoice} method="post" className="inline">
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <input type="hidden" name="clientId" value={project.clientId} />
+                  <Button type="submit" variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </form>
+              </div>
+              <div className="flex items-center gap-1">
+                <Link href={`/projects/${project.id}/drawings`} className="text-sm text-slate hover:text-navy pb-2">Drawings ({project.drawings.length})</Link>
+                <form action={createDrawing} method="post" className="inline">
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <input type="hidden" name="title" value="New drawing" />
+                  <Button type="submit" variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </form>
+              </div>
+              <div className="flex items-center gap-1">
+                <Link href={`/projects/${project.id}/method-statements`} className="text-sm text-slate hover:text-navy pb-2">Method Statements ({project.methodStatements.length})</Link>
+                <form action={createMethodStatement} method="post" className="inline">
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <input type="hidden" name="title" value="New method statement" />
+                  <Button type="submit" variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </form>
+              </div>
+              <div className="flex items-center gap-1">
+                <Link href={`/projects/${project.id}/testing`} className="text-sm text-slate hover:text-navy pb-2">Testing ({project.checklists.length})</Link>
+                <form action={createTestingChecklist} method="post" className="inline">
+                  <input type="hidden" name="projectId" value={project.id} />
+                  <input type="hidden" name="category" value="PRE-INSTALLATION" />
+                  <Button type="submit" variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </form>
+              </div>
               <Link href={`/projects/${project.id}/documents`} className="text-sm text-slate hover:text-navy pb-2">
                 Documents ({project.documents.length})
               </Link>
