@@ -506,6 +506,7 @@ model Payment {
   method     String      @default("Bank")
   reference  String?
   notes      String?
+  deletedAt  DateTime?
   createdAt  DateTime    @default(now())
 }
 
@@ -522,6 +523,7 @@ model Expense {
   paymentMethod String          @default("Cash")
   receiptPath   String?
   notes         String?
+  deletedAt     DateTime?
   createdAt     DateTime        @default(now())
 }
 
@@ -537,6 +539,7 @@ model Drawing {
   checkedBy  String?
   approvedBy String?
   date       DateTime          @default(now())
+  deletedAt  DateTime?
   createdAt  DateTime          @default(now())
   revisions  DrawingRevision[]
 }
@@ -591,6 +594,7 @@ model MethodStatement {
   riskAssessment   String?
   references       String?
   status           DocumentStatus @default(DRAFT)
+  deletedAt        DateTime?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 }
@@ -610,6 +614,7 @@ model TestingChecklist {
   calibrationDate DateTime?
   overallResult   String?
   remarks         String?
+  deletedAt       DateTime?
   createdAt       DateTime      @default(now())
   items           TestingItem[]
 }
@@ -632,6 +637,7 @@ model Document {
   title     String
   filePath  String
   mimeType  String?
+  deletedAt DateTime?
   createdAt DateTime @default(now())
 }
 
@@ -642,9 +648,10 @@ model StandardDocument {
   edition       String?
   category      String
   description   String?
-  filePath      String?
+    filePath      String?
   applicability String?
   notes         String?
+  deletedAt     DateTime?
   createdAt     DateTime @default(now())
 }
 
@@ -679,6 +686,7 @@ model SiteSurvey {
   otherObs       String?
   measurements   String?
   photosJson     String?
+  deletedAt      DateTime?
   createdAt      DateTime @default(now())
 }
 
@@ -694,6 +702,7 @@ model PurchaseOrder {
   vatPct       Decimal             @default(13)
   status       DocumentStatus      @default(DRAFT)
   notes        String?
+  deletedAt    DateTime?
   createdAt    DateTime            @default(now())
   items        PurchaseOrderItem[]
 }
@@ -718,6 +727,7 @@ model InventoryMove {
   type       InventoryMoveType
   quantity   Decimal
   note       String?
+  deletedAt  DateTime?
   createdAt  DateTime          @default(now())
 }
 
@@ -730,6 +740,7 @@ model Notification {
   type      String
   read      Boolean  @default(false)
   href      String?
+  deletedAt DateTime?
   createdAt DateTime @default(now())
 }
 
@@ -742,6 +753,7 @@ model AuditLog {
   entityId  String
   oldValue  String?
   newValue  String?
+  deletedAt DateTime?
   createdAt DateTime @default(now())
 }
 

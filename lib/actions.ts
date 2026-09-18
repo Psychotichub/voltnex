@@ -5,6 +5,7 @@ import {
   ClientType,
   DocumentStatus,
   ExpenseCategory,
+  InventoryMoveType,
   PaymentKind,
   Prisma,
   ProjectStatus,
@@ -12,13 +13,13 @@ import {
   Role,
 } from "@prisma/client";
 import { z } from "zod";
-import { writeAudit } from "@/lib/audit";
+import { writeAudit, notify } from "@/lib/audit";
 import { requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { documentTotals } from "@/lib/finance";
 import { saveUpload } from "@/lib/files";
 import { assertNonNegative, assertPercent, money } from "@/lib/money";
-import { nextNumber } from "@/lib/numbering";
+import { drawingNumber, nextNumber } from "@/lib/numbering";
 import { can } from "@/lib/rbac";
 
 function str(form: FormData, key: string) {
@@ -570,9 +571,9 @@ export async function createExpense(form: FormData) {
 export async function createPurchaseOrder(form: FormData) {
   await guard();
   const supplierId = str(form, "supplierId");
-  const po = await prisma.purchaseOrder.create({
+  await prisma.purchaseOrder.create({
     data: {
-      number: await nextNumber("purchaseOrder"),
+      number: await nextNumber("po"),
       supplierId,
       projectId: opt(form, "projectId"),
       deliveryDate: opt(form, "deliveryDate") ? new Date(str(form, "deliveryDate")) : null,
@@ -581,7 +582,6 @@ export async function createPurchaseOrder(form: FormData) {
     },
   });
   revalidatePath("/procurement");
-  return po.id;
 }
 
 export async function addPoItem(form: FormData) {
@@ -663,7 +663,7 @@ export async function createDrawing(form: FormData) {
   const projectId = str(form, "projectId");
   const count = await prisma.drawing.count({ where: { projectId } });
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
-  const drawing = await prisma.drawing.create({
+  await prisma.drawing.create({
     data: {
       number: `DWG-${project.code.replaceAll("-", "").slice(-6)}-${String(count + 1).padStart(3, "0")}`,
       title: str(form, "title"),
@@ -676,7 +676,6 @@ export async function createDrawing(form: FormData) {
     },
   });
   revalidatePath("/drawings");
-  return drawing.id;
 }
 
 export async function createMethodStatement(form: FormData) {
@@ -970,3 +969,111 @@ export async function addStandard(form: FormData) {
   });
   revalidatePath("/standards");
 }
+
+export async function createPayment(form: FormData) {
+  const session = await guard();
+  const number = await nextNumber("payment");
+  const data = {
+    number,
+    date: new Date(),
+    amount: money(str(form, "amount") || "0"),
+    projectId: opt(form, "projectId"),
+    invoiceId: opt(form, "invoiceId"),
+    kind: (str(form, "kind") || "CLIENT") as PaymentKind,
+    method: str(form, "method") || "Bank",
+    reference: opt(form, "reference"),
+    notes: opt(form, "notes"),
+  };
+  if (!data.amount.isFinite() || data.amount.lte(0)) throw new Error("Valid amount is required.");
+  assertNonNegative(data.amount, "amount");
+  const created = await prisma.payment.create({ data });
+  await writeAudit({ userId: session.user.id, action: "create", entity: "Payment", entityId: created.id, newValue: data });
+  revalidatePath("/payments");
+}
+
+export async function deletePayment(form: FormData) {
+  const session = await guard("delete");
+  const id = str(form, "id");
+  const payment = await prisma.payment.findUnique({ where: { id } });
+  if (!payment) throw new Error("Payment not found");
+  await prisma.payment.delete({ where: { id } });
+  await writeAudit({ userId: session.user.id, action: "delete", entity: "Payment", entityId: id, oldValue: payment });
+  revalidatePath("/payments");
+}
+
+export async function deleteExpense(form: FormData) {
+  const session = await guard("delete");
+  const id = str(form, "id");
+  const expense = await prisma.expense.findUnique({ where: { id } });
+  if (!expense) throw new Error("Expense not found");
+  await prisma.expense.update({ where: { id }, data: { deletedAt: new Date() } });
+  await writeAudit({ userId: session.user.id, action: "delete", entity: "Expense", entityId: id, oldValue: expense });
+  revalidatePath("/expenses");
+}
+
+export async function createDocument(form: FormData) {
+  const session = await guard("upload");
+  const number = await nextNumber("doc");
+  const file = form.get("file") as File | null;
+  let filePath: string | null = null;
+  if (file instanceof File && file.size > 0) filePath = await saveUpload(file, `documents/${number}`);
+  const data = {
+    projectId: opt(form, "projectId"),
+    folder: str(form, "folder") || "00 General",
+    title: str(form, "title"),
+    filePath: filePath as string | undefined,
+    mimeType: file?.type ?? null,
+  };
+  if (!data.title) throw new Error("Title is required.");
+  const created = await prisma.document.create({ data: data as any });
+  await writeAudit({ userId: session.user.id, action: "create", entity: "Document", entityId: created.id, newValue: data });
+  revalidatePath("/documents");
+}
+
+export async function deleteDocument(form: FormData) {
+  const session = await guard("delete");
+  const id = str(form, "id");
+  const doc = await prisma.document.findUnique({ where: { id } });
+  if (!doc) throw new Error("Document not found");
+  await prisma.document.delete({ where: { id } });
+  await writeAudit({ userId: session.user.id, action: "delete", entity: "Document", entityId: id, oldValue: doc });
+  revalidatePath("/documents");
+}
+
+export async function deleteDrawing(form: FormData) {
+  const session = await guard("delete");
+  const id = str(form, "id");
+  const drawing = await prisma.drawing.findUnique({ where: { id } });
+  if (!drawing) throw new Error("Drawing not found");
+  await prisma.drawing.update({ where: { id }, data: { deletedAt: new Date() } });
+  await writeAudit({ userId: session.user.id, action: "delete", entity: "Drawing", entityId: id, oldValue: drawing });
+  revalidatePath("/drawings");
+}
+
+export async function createInventoryMove(form: FormData) {
+  const session = await guard("create");
+  const data = {
+    materialId: str(form, "materialId"),
+    projectId: opt(form, "projectId"),
+    type: (str(form, "type") || "PURCHASE") as InventoryMoveType,
+    quantity: money(str(form, "quantity") || "0"),
+    note: opt(form, "note"),
+  };
+  if (!data.materialId) throw new Error("Material is required.");
+  assertNonNegative(data.quantity, "quantity");
+  const created = await prisma.inventoryMove.create({ data });
+  await writeAudit({ userId: session.user.id, action: "create", entity: "InventoryMove", entityId: created.id, newValue: data });
+  revalidatePath("/inventory");
+}
+
+export async function notifyAction(form: FormData) {
+  await guard("create");
+  await notify({
+    userId: str(form, "userId"),
+    title: str(form, "title"),
+    body: str(form, "body"),
+    type: str(form, "type") || "info",
+    href: opt(form, "href") as string | undefined,
+  });
+}
+
